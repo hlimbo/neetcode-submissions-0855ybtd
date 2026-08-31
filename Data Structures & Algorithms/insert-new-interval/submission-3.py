@@ -1,94 +1,132 @@
 '''
-    -- knowns --
-* intervals is sorted in ascending order by start_i
-* interval is shaped as = [start, end]
-* I can assume start < end
-* list of intervals given are ALL non-overlapping
-    e.g. [a1, b1] < [a2, b2] where b1 < a2
+- interval = [start_i, end_i]
+- intervals sorted in asc order by start_i
 
-Task
-* add a newInterval into intervals such that intervals STILL SORTED IN ASC ORDER BY START_I
-* also make sure intervals have no overlapping intervals
-* may need to merge overlapping intervals needed
+inputs:
+- list of intervals sorted in asc order by start_i
+- interval to insert [start_i, end_i] => newInterval
 
-Examples
+output:
+* return intervals after inserting new interval
 
-intervals [[3,5],[6,7], [9,10]], newInterval = [1,2]
-answer = [[1,2], [3,5],[6,7], [9,10]]
+Rules
+1. intervals remains sorted in ascending order after inserting newInterval
+2. intervals has no overlapping intervals
+3. can merge overlapping intervals IF NEEDED
 
-intervals [[3,5],[6,7], [9,10]], newInterval = [11, 20]
-answer = [[3,5],[6,7], [9,10], [11, 20]]
 
-intervals [3,5], [6,7], [9,10], newInterval = [1, 20]
-answer = [1,20]
+examples
+[1,2] [3,4] are non-overlapping
 
-High Level approaches:
-1. linear scan
-2. binary search?
-3. 2 pointer?
-    - leftIndex = 0, rightIndex = len(intervals)
-    - check if left side intervals overlap with new Interval
-        scan left 2 right
-            - if currInterval.end < newInterval.start
-                - leftIndex += 1
-    - check if right side intervals overlap with new Interval
-        scan right 2 left
-            - if currInterval.start > newInterval.end
-                - rightIndex -= 1
+[1,5] [2,6] are overlapping
 
-    # non overlapping intervals left side
-    from 0 to left index exclusive in intervals
-        add all intervals into new intervals copy
 
-    * left and right indices represent the range in which overlaps may occur
-    -- overlaps
-    from left index to right index inclusive in intervals
-        * if currInterval.start <= newInterval.start <= currInterval.end
-            newInterval = [min(currInterval.start, newInterval.start), max(currInterval.end, newInterval.end)]
-        else:
-            add currInterval to intervals copy
+intervals
+[] 
+[1,5]
+output:
+[[1,5]]
 
-    add newInterval to end of intervals copy
+[[3,10]]
+[12,20]
+output
+[[3,10],[12,20]]
 
-    # non overlapping intervals right side
-    from right index to end of intervals
-        add all intervals into intervals copy
+[[3,10]]
+[1,2]
+output
+[[1,2],[3,10]]
 
-Sub problems:
-1. look for the index where newInterval can be inserted in intervals
-    -- scan from left to right
-        - if currInterval.end < newInterval.start
-            - nonOverlapIndex is increased by 1
-2. before inserting, check if the spot inserting overlaps with any adjacent intervals
+[[3,10]]
+[1,4]
+output
+[[1,10]]
+
+[[3,10]]
+[8,12]
+output
+[[3,12]]
+
+[[5,25]]
+[8,10]
+output
+[[5,25]]
+
+Two intervals A and B overlap if
+A = new interval
+B = interval in intervals list
+
+B.end >= A.start or B.start <= A.start <= A.end <= B.end
+
+possibilities
+* B.start <= A.start <= B.end <= A.end
+* A.start <= B.start <= A.end <= B.end
+* A.start <= B.start <= B.end <= A.end
+* B.start <= A.start <= A.end <= B.end
+
+^ Overlapping conditions
+
+Condition to insert?
+* if A.start > B.end -- insert last (if on last interval)
+* if A.end < B.start -- insert first (if on first interval)
+* if A.start > B.end and A.end < (B+1).start -- insert in  middle (if in middle interval)
+
+Build a new intervals list where we compare the current interval in list with new interval
+
+set pendingInterval = new interval
+
+* if pendingInterval overlaps with current interval
+    - merge the 2 intervals together and store them in a temp variable called pendingInterval
+    - go to the next interval to compare against the pendingInterval with
+* if pendingInterval does not overlap with current interval
+    - if pendingInterval.end < current interval.start
+        - insert pendingInterval to new list
+        - insert current interval to list
+        - mark as inserted so the algorithm can insert all the intervals from the old list into the new list
+    - else
+        - insert current interval to list
+
+Time complexity:
+O(N) where N is number of intervals in list
+
+Space complexity:
+O(N) as I'm making a new list to return
 '''
 
 
 class Solution:
     def insert(self, intervals: List[List[int]], newInterval: List[int]) -> List[List[int]]:
-        leftIndex = 0
-        rightIndex = len(intervals) - 1
+        newList = []
+        pendingInterval = newInterval
+        isPendingIntervalInserted = False
+        i = 0
+        while not isPendingIntervalInserted and i < len(intervals):
+            currentInterval = intervals[i]
+            doesOverlap = pendingInterval[0] <= currentInterval[0] <= currentInterval[1] <= pendingInterval[1] or pendingInterval[0] <= currentInterval[0] <= pendingInterval[1] <= currentInterval[1] or currentInterval[0] <= pendingInterval[0] <= pendingInterval[1] <= currentInterval[1] or currentInterval[0] <= pendingInterval[0] <= currentInterval[1] <= pendingInterval[1] 
 
-        while leftIndex < len(intervals) and intervals[leftIndex][1] < newInterval[0]:
-            leftIndex += 1
-        
-        while rightIndex > -1 and intervals[rightIndex][0] > newInterval[1]:
-            rightIndex -= 1
-
-        intervalsCopy = []
-        for l in range(0, leftIndex):
-            intervalsCopy.append(intervals[l])
-
-        # maybe overlapping items
-        for i in range(leftIndex, rightIndex + 1):
-            if intervals[i][1] >= newInterval[0]:
-                newInterval = [min(intervals[i][0], newInterval[0]), max(intervals[i][1], newInterval[1])]
+            if doesOverlap:
+                # merge the 2 intervals together
+                pendingInterval = [min(pendingInterval[0], currentInterval[0]), max(pendingInterval[1], currentInterval[1])]
             else:
-                intervalsCopy.append(intervals[i])
+                # check for insert conditions
+                if pendingInterval[1] < currentInterval[0]:
+                    newList.append(pendingInterval)
+                    newList.append(currentInterval)
+                    isPendingIntervalInserted = True
+                else:
+                    newList.append(currentInterval)
 
-        # add new interval with merges maybe included
-        intervalsCopy.append(newInterval)
+            i += 1
 
-        for r in range(rightIndex + 1, len(intervals)):
-            intervalsCopy.append(intervals[r])
+        # insert remaining intervals
+        while i < len(intervals):
+            newList.append(intervals[i])
+            i += 1
 
-        return intervalsCopy
+        # add to the last spot in the new list
+        if isPendingIntervalInserted == False:
+            newList.append(pendingInterval)
+
+        return newList
+
+        
